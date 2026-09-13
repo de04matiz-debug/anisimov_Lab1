@@ -3,5 +3,8 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/Элементы решения/">
+    <File Path=".gitignore" />
+  </Folder>
   <Project Path="anisimov_Lab1/anisimov_Lab1.vcxproj" />
 </Solution>
