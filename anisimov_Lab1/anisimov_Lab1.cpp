@@ -1,357 +1,213 @@
-﻿#include <iostream>
+#include <iostream>
 #include <string>
-#include <fstream>
+#include <sstream>
+#include <limits>
+#include <cmath>
 
 using namespace std;
 
 struct Pipe
 {
     string name;
-    double length;
-    int diameter;
-    bool inRepair;
-    bool created;
+    double length = 0;
+    int diameter = 0;
+    bool inRepair = false;
 };
 
 struct CompressorStation
 {
     string name;
-    int workshopCount;
-    int workingWorkshops;
-    int stationClass;
-    bool created;
+    int workshopCount = 0;
+    int workingWorkshops = 0;
+    int stationClass = 0;
 };
 
-void addPipe(Pipe& pipe)
+struct AppState
 {
-    cout << "\n--- Add pipe ---\n";
+    Pipe pipe;
+    CompressorStation station;
+    bool hasPipe = false;
+    bool hasStation = false;
+};
 
-    cout << "Enter pipe name: ";
-    cin >> pipe.name;
-
-    cout << "Enter pipe length (km): ";
-    while (!(cin >> pipe.length) || pipe.length < 0)
-    {
-        cout << "Error. Enter a positive number: ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
-
-    cout << "Enter pipe diameter (mm): ";
-    while (!(cin >> pipe.diameter) || pipe.diameter <= 0)
-    {
-        cout << "Error. Enter a positive number: ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
-
-    int answer;
-
-    cout << "Is the pipe under repair?\n";
-    cout << "1 - Yes\n";
-    cout << "0 - No\n";
-
-    while (!(cin >> answer) || (answer != 0 && answer != 1))
-    {
-        cout << "Error. Enter 1 or 0: ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
-
-    pipe.inRepair = (answer == 1);
-    pipe.created = true;
-
-    cout << "Pipe added.\n";
+bool validName(const string& name)
+{
+    return name.find_first_not_of(" \t\r\n") != string::npos
+        && name.find_first_of("\r\n") == string::npos;
 }
 
-void addStation(CompressorStation& station)
+// Each number occupies one line. Reject trailing text and overflow.
+template <typename T>
+bool readNumberLine(istream& in, T& value)
 {
-    cout << "\n--- Add compressor station ---\n";
-
-    cout << "Enter station name: ";
-    cin >> station.name;
-
-    cout << "Enter number of workshops: ";
-    while (!(cin >> station.workshopCount) || station.workshopCount <= 0)
-    {
-        cout << "Error. Enter a positive number: ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
-
-    cout << "Enter number of working workshops: ";
-    while (!(cin >> station.workingWorkshops) ||
-        station.workingWorkshops < 0 ||
-        station.workingWorkshops > station.workshopCount)
-    {
-        cout << "Error. Number of working workshops must be from 0 to "
-            << station.workshopCount << ": ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
-
-    cout << "Enter station class: ";
-    while (!(cin >> station.stationClass) || station.stationClass <= 0)
-    {
-        cout << "Error. Enter a positive number: ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
-
-    station.created = true;
-
-    cout << "Compressor station added.\n";
+    string line;
+    if (!getline(in, line))
+        return false;
+    istringstream row(line);
+    T candidate{};
+    if (!(row >> candidate) || !isfinite(static_cast<double>(candidate)))
+        return false;
+    row >> ws;
+    if (!row.eof())
+        return false;
+    value = candidate;
+    return true;
 }
 
-void showObjects(Pipe pipe, CompressorStation station)
+template <typename T>
+bool readNumber(const string& prompt, T& value, T minimum, T maximum)
 {
-    cout << "\n===== ALL OBJECTS =====\n";
-
-    if (pipe.created)
+    while (true)
     {
-        cout << "\nPIPE\n";
-        cout << "Name: " << pipe.name << "\n";
-        cout << "Length: " << pipe.length << " km\n";
-        cout << "Diameter: " << pipe.diameter << " mm\n";
-        cout << "Under repair: ";
-
-        if (pipe.inRepair)
-            cout << "Yes\n";
-        else
-            cout << "No\n";
-    }
-    else
-    {
-        cout << "\nPipe is not created.\n";
-    }
-
-    if (station.created)
-    {
-        cout << "\nCOMPRESSOR STATION\n";
-        cout << "Name: " << station.name << "\n";
-        cout << "Number of workshops: "
-            << station.workshopCount << "\n";
-        cout << "Working workshops: "
-            << station.workingWorkshops << "\n";
-        cout << "Station class: "
-            << station.stationClass << "\n";
-    }
-    else
-    {
-        cout << "\nCompressor station is not created.\n";
+        cout << prompt;
+        if (readNumberLine(cin, value) && value >= minimum && value <= maximum)
+            return true;
+        if (!cin)
+            return false;
+        cout << "Invalid input. Allowed range: " << minimum << " .. " << maximum << ".\n";
     }
 }
 
-void editPipe(Pipe& pipe)
+bool readName(const string& prompt, string& name)
 {
-    if (!pipe.created)
+    while (true)
     {
-        cout << "First add a pipe.\n";
-        return;
+        cout << prompt;
+        if (!getline(cin, name))
+            return false;
+        if (validName(name))
+            return true;
+        cout << "The name must not be empty.\n";
     }
+}
 
-    int answer;
+bool addPipe(Pipe& pipe)
+{
+    Pipe candidate;
+    int repair;
+    if (!readName("Pipe name (kilometer mark): ", candidate.name)
+        || !readNumber("Length (km, > 0): ", candidate.length,
+            numeric_limits<double>::denorm_min(), numeric_limits<double>::max())
+        || !readNumber("Diameter (mm, > 0): ", candidate.diameter, 1, numeric_limits<int>::max())
+        || !readNumber("Under repair (0 - no, 1 - yes): ", repair, 0, 1))
+        return false;
+    candidate.inRepair = (repair == 1);
+    pipe = candidate;
+    cout << "Pipe added (replaces the previous pipe).\n";
+    return true;
+}
 
-    cout << "\n--- Edit pipe ---\n";
-    cout << "1 - Under repair\n";
-    cout << "0 - Not under repair\n";
+bool addStation(CompressorStation& station)
+{
+    CompressorStation candidate;
+    if (!readName("Station name: ", candidate.name)
+        || !readNumber("Number of workshops (> 0): ", candidate.workshopCount, 1, numeric_limits<int>::max())
+        || !readNumber("Working workshops: ", candidate.workingWorkshops, 0, candidate.workshopCount)
+        || !readNumber("Station class (> 0): ", candidate.stationClass, 1, numeric_limits<int>::max()))
+        return false;
+    station = candidate;
+    cout << "Station added (replaces the previous station).\n";
+    return true;
+}
 
-    while (!(cin >> answer) || (answer != 0 && answer != 1))
-    {
-        cout << "Error. Enter 1 or 0: ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
+void showPipe(const Pipe& pipe)
+{
+    cout << "\nPIPE\nName: " << pipe.name
+        << "\nLength: " << pipe.length << " km\nDiameter: " << pipe.diameter
+        << " mm\nUnder repair: " << (pipe.inRepair ? "Yes" : "No") << '\n';
+}
 
-    pipe.inRepair = (answer == 1);
+void showStation(const CompressorStation& station)
+{
+    cout << "\nCOMPRESSOR STATION\nName: " << station.name
+        << "\nNumber of workshops: " << station.workshopCount
+        << "\nWorking workshops: " << station.workingWorkshops
+        << "\nStation class: " << station.stationClass << '\n';
+}
 
+bool editPipe(Pipe& pipe)
+{
+    int repair;
+    if (!readNumber("Under repair (0 - no, 1 - yes): ", repair, 0, 1))
+        return false;
+    pipe.inRepair = (repair == 1);
     cout << "Pipe state changed.\n";
+    return true;
 }
 
-void editStation(CompressorStation& station)
+bool editStation(CompressorStation& station)
 {
-    if (!station.created)
+    int action;
+    if (!readNumber("1 - Start a workshop, 2 - Stop a workshop, 0 - Cancel: ", action, 0, 2))
+        return false;
+    if (action == 1)
     {
-        cout << "First add a compressor station.\n";
-        return;
-    }
-
-    int answer;
-
-    cout << "\n--- Edit compressor station ---\n";
-    cout << "1 - Start a workshop\n";
-    cout << "2 - Stop a workshop\n";
-    cout << "0 - Cancel\n";
-
-    while (!(cin >> answer) || answer < 0 || answer > 2)
-    {
-        cout << "Error. Enter 0, 1 or 2: ";
-        cin.clear();
-        cin.ignore(1000, '\n');
-    }
-
-    if (answer == 1)
-    {
-        if (station.workingWorkshops < station.workshopCount)
+        if (station.workingWorkshops == station.workshopCount)
+            cout << "All workshops are already working.\n";
+        else
         {
-            station.workingWorkshops++;
+            ++station.workingWorkshops;
             cout << "Workshop started.\n";
         }
+    }
+    else if (action == 2)
+    {
+        if (station.workingWorkshops == 0)
+            cout << "There are no working workshops.\n";
         else
         {
-            cout << "All workshops are already working.\n";
-        }
-    }
-
-    if (answer == 2)
-    {
-        if (station.workingWorkshops > 0)
-        {
-            station.workingWorkshops--;
+            --station.workingWorkshops;
             cout << "Workshop stopped.\n";
         }
-        else
-        {
-            cout << "There are no working workshops.\n";
-        }
     }
+    return true;
 }
 
-void saveData(Pipe pipe, CompressorStation station)
+void showMenu()
 {
-    ofstream file("data.txt");
-
-    if (!file)
-    {
-        cout << "Error opening file.\n";
-        return;
-    }
-
-    file << pipe.created << "\n";
-
-    if (pipe.created)
-    {
-        file << pipe.name << "\n";
-        file << pipe.length << "\n";
-        file << pipe.diameter << "\n";
-        file << pipe.inRepair << "\n";
-    }
-
-    file << station.created << "\n";
-
-    if (station.created)
-    {
-        file << station.name << "\n";
-        file << station.workshopCount << "\n";
-        file << station.workingWorkshops << "\n";
-        file << station.stationClass << "\n";
-    }
-
-    file.close();
-
-    cout << "Data saved.\n";
-}
-
-void loadData(Pipe& pipe, CompressorStation& station)
-{
-    ifstream file("data.txt");
-
-    if (!file)
-    {
-        cout << "File not found.\n";
-        return;
-    }
-
-    file >> pipe.created;
-    file.ignore(1000, '\n');
-
-    if (pipe.created)
-    {
-        getline(file, pipe.name);
-        file >> pipe.length;
-        file >> pipe.diameter;
-        file >> pipe.inRepair;
-        file.ignore(1000, '\n');
-    }
-
-    file >> station.created;
-    file.ignore(1000, '\n');
-
-    if (station.created)
-    {
-        getline(file, station.name);
-        file >> station.workshopCount;
-        file >> station.workingWorkshops;
-        file >> station.stationClass;
-    }
-
-    file.close();
-
-    cout << "Data loaded.\n";
+    cout << "\n1. Add pipe\n2. Add compressor station\n3. Show all objects\n"
+        << "4. Edit pipe\n5. Edit compressor station\n6. Save\n7. Load\n0. Exit\n";
 }
 
 int main()
 {
-    Pipe pipe = {};
-    CompressorStation station = {};
-
+    AppState state;
     int choice;
-
     while (true)
     {
-        cout << "\n========================\n";
-        cout << "1. Add pipe\n";
-        cout << "2. Add compressor station\n";
-        cout << "3. Show all objects\n";
-        cout << "4. Edit pipe\n";
-        cout << "5. Edit compressor station\n";
-        cout << "6. Save\n";
-        cout << "7. Load\n";
-        cout << "0. Exit\n";
-        cout << "========================\n";
-
-        cout << "Choose an option: ";
-
-        if (!(cin >> choice))
+        showMenu();
+        if (!readNumber("Choose an option: ", choice, 0, 7) || choice == 0)
+            break;
+        switch (choice)
         {
-            cout << "Error. Enter a number from 0 to 7.\n";
-            cin.clear();
-            cin.ignore(1000, '\n');
-            continue;
-        }
-
-        if (choice == 1)
-            addPipe(pipe);
-
-        else if (choice == 2)
-            addStation(station);
-
-        else if (choice == 3)
-            showObjects(pipe, station);
-
-        else if (choice == 4)
-            editPipe(pipe);
-
-        else if (choice == 5)
-            editStation(station);
-
-        else if (choice == 6)
-            saveData(pipe, station);
-
-        else if (choice == 7)
-            loadData(pipe, station);
-
-        else if (choice == 0)
-        {
-            cout << "Program finished.\n";
+        case 1:
+            if (!addPipe(state.pipe)) return 0;
+            state.hasPipe = true;
+            break;
+        case 2:
+            if (!addStation(state.station)) return 0;
+            state.hasStation = true;
+            break;
+        case 3:
+            if (state.hasPipe) showPipe(state.pipe);
+            else cout << "Pipe is not created.\n";
+            if (state.hasStation) showStation(state.station);
+            else cout << "Station is not created.\n";
+            break;
+        case 4:
+            if (!state.hasPipe) cout << "First add a pipe.\n";
+            else if (!editPipe(state.pipe)) return 0;
+            break;
+        case 5:
+            if (!state.hasStation) cout << "First add a station.\n";
+            else if (!editStation(state.station)) return 0;
+            break;
+        case 6:
+        case 7:
+            cout << "File operations are being updated.\n";
             break;
         }
-
-        else
-        {
-            cout << "There is no such menu option.\n";
-        }
     }
-
+    cout << "Program finished.\n";
     return 0;
 }
