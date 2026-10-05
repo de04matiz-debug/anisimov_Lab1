@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <string>
 #include <sstream>
 #include <limits>
@@ -87,7 +87,7 @@ bool readName(const string& prompt, string& name)
 bool addPipe(Pipe& pipe)
 {
     Pipe candidate;
-    int repair;
+    int repair = 0;
     if (!readName("Pipe name (kilometer mark): ", candidate.name)
         || !readNumber("Length (km, > 0): ", candidate.length,
             numeric_limits<double>::denorm_min(), numeric_limits<double>::max())
@@ -130,7 +130,7 @@ void showStation(const CompressorStation& station)
 
 bool editPipe(Pipe& pipe)
 {
-    int repair;
+    int repair = 0;
     if (!readNumber("Under repair (0 - no, 1 - yes): ", repair, 0, 1))
         return false;
     pipe.inRepair = (repair == 1);
@@ -140,7 +140,7 @@ bool editPipe(Pipe& pipe)
 
 bool editStation(CompressorStation& station)
 {
-    int action;
+    int action = 0;
     if (!readNumber("1 - Start a workshop, 2 - Stop a workshop, 0 - Cancel: ", action, 0, 2))
         return false;
     if (action == 1)
@@ -191,7 +191,7 @@ bool savePipe(ostream& out, const Pipe& pipe)
 bool loadPipe(istream& in, Pipe& pipe)
 {
     Pipe candidate;
-    int repair;
+    int repair = 0;
     if (!getline(in, candidate.name)
         || !readNumberLine(in, candidate.length)
         || !readNumberLine(in, candidate.diameter)
@@ -272,7 +272,7 @@ bool loadFromFile(const string& fileName, AppState& state)
     }
     // Replace current data only after the entire file has passed validation.
     AppState candidate;
-    int pipeCount, stationCount;
+    int pipeCount = 0, stationCount = 0;
     if (!readNumberLine(in, pipeCount) || (pipeCount != 0 && pipeCount != 1))
     {
         cout << "Load failed: invalid or missing pipe count (expected 0 or 1).\n";
@@ -314,7 +314,7 @@ void showMenu()
 int main()
 {
     AppState state;
-    int choice;
+    int choice = 0;
     string fileName;
     while (true)
     {
@@ -359,4 +359,3 @@ int main()
     cout << "Program finished.\n";
     return 0;
 }
-
