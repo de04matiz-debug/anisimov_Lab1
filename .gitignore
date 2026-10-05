@@ -12,3 +12,5 @@ x86/
 *.ipch
 *.json
 data.txt
+UpgradeLog.htm
+
