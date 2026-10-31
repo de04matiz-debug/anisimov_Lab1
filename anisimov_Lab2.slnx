@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="anisimov_Lab2/anisimov_Lab2.vcxproj" Id="42ad9aba-1dd8-4f31-b794-1472ab73d7b6" />
+</Solution>
