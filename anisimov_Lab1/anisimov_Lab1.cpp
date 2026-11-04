@@ -1,11 +1,10 @@
 ﻿#include <iostream>
 #include <string>
-#include <sstream>
+#include <charconv>
 #include <limits>
 #include <cmath>
 #include <fstream>
 #include <filesystem>
-#include <iomanip>
 
 #ifdef _WIN32
 #define NOMINMAX
@@ -30,14 +29,6 @@ struct CompressorStation
     int stationClass = 0;
 };
 
-struct AppState
-{
-    Pipe pipe;
-    CompressorStation station;
-    bool hasPipe = false;
-    bool hasStation = false;
-};
-
 bool validName(const string& name)
 {
     return name.find_first_not_of(" \t\r\n") != string::npos
@@ -51,15 +42,18 @@ bool readNumberLine(istream& in, T& value)
     string line;
     if (!getline(in, line))
         return false;
-    istringstream row(line);
-    T candidate{};
-    if (!(row >> candidate) || !isfinite(candidate))
+    size_t first = line.find_first_not_of(" \t\r\n\v\f");
+    if (first == string::npos)
         return false;
-    row >> ws;
-    if (!row.eof())
-        return false;
-    value = candidate;
-    return true;
+    size_t last = line.find_last_not_of(" \t\r\n\v\f") + 1;
+    if (line[first] == '+')
+    {
+        ++first;
+        if (first == last || line[first] == '-' || line[first] == '+')
+            return false;
+    }
+    auto result = from_chars(line.data() + first, line.data() + last, value);
+    return result.ec == errc{} && result.ptr == line.data() + last && isfinite(value);
 }
 
 template <typename T>
@@ -91,29 +85,25 @@ bool readName(const string& prompt, string& name)
 
 bool addPipe(Pipe& pipe)
 {
-    Pipe candidate;
     int repair = 0;
-    if (!readName("Название трубы (километровая отметка): ", candidate.name)
-        || !readNumber("Длина (км, больше 0): ", candidate.length,
+    if (!readName("Название трубы (километровая отметка): ", pipe.name)
+        || !readNumber("Длина (км, больше 0): ", pipe.length,
             numeric_limits<double>::denorm_min(), numeric_limits<double>::max())
-        || !readNumber("Диаметр (мм, больше 0): ", candidate.diameter, 1, numeric_limits<int>::max())
+        || !readNumber("Диаметр (мм, больше 0): ", pipe.diameter, 1, numeric_limits<int>::max())
         || !readNumber("В ремонте? 0 - нет, 1 - да: ", repair, 0, 1))
         return false;
-    candidate.inRepair = (repair == 1);
-    pipe = candidate;
+    pipe.inRepair = (repair == 1);
     cout << "Труба добавлена.\n";
     return true;
 }
 
 bool addStation(CompressorStation& station)
 {
-    CompressorStation candidate;
-    if (!readName("Название КС: ", candidate.name)
-        || !readNumber("Количество цехов (больше 0): ", candidate.workshopCount, 1, numeric_limits<int>::max())
-        || !readNumber("Цехов в работе (от 0 до " + to_string(candidate.workshopCount) + "): ", candidate.workingWorkshops, 0, candidate.workshopCount)
-        || !readNumber("Класс станции (больше 0): ", candidate.stationClass, 1, numeric_limits<int>::max()))
+    if (!readName("Название КС: ", station.name)
+        || !readNumber("Количество цехов (больше 0): ", station.workshopCount, 1, numeric_limits<int>::max())
+        || !readNumber("Цехов в работе (от 0 до " + to_string(station.workshopCount) + "): ", station.workingWorkshops, 0, station.workshopCount)
+        || !readNumber("Класс станции (больше 0): ", station.stationClass, 1, numeric_limits<int>::max()))
         return false;
-    station = candidate;
     cout << "КС добавлена.\n";
     return true;
 }
@@ -187,30 +177,27 @@ bool validStation(const CompressorStation& station)
 // Эти функции сохраняют и загружают только поля объекта.
 bool savePipe(ostream& out, const Pipe& pipe)
 {
-    if (!validPipe(pipe)) return false;
-    out << pipe.name << '\n' << setprecision(numeric_limits<double>::max_digits10)
-        << pipe.length << '\n' << pipe.diameter << '\n' << (pipe.inRepair ? 1 : 0) << '\n';
+    out.precision(numeric_limits<double>::max_digits10);
+    out << pipe.name << '\n' << pipe.length << '\n'
+        << pipe.diameter << '\n' << (pipe.inRepair ? 1 : 0) << '\n';
     return static_cast<bool>(out);
 }
 
 bool loadPipe(istream& in, Pipe& pipe)
 {
-    Pipe candidate;
     int repair = 0;
-    if (!getline(in, candidate.name)
-        || !readNumberLine(in, candidate.length)
-        || !readNumberLine(in, candidate.diameter)
+    if (!getline(in, pipe.name)
+        || !readNumberLine(in, pipe.length)
+        || !readNumberLine(in, pipe.diameter)
         || !readNumberLine(in, repair) || (repair != 0 && repair != 1)
-        || !validPipe(candidate))
+        || !validPipe(pipe))
         return false;
-    candidate.inRepair = (repair == 1);
-    pipe = candidate;
+    pipe.inRepair = (repair == 1);
     return true;
 }
 
 bool saveCompressorStation(ostream& out, const CompressorStation& station)
 {
-    if (!validStation(station)) return false;
     out << station.name << '\n' << station.workshopCount << '\n'
         << station.workingWorkshops << '\n' << station.stationClass << '\n';
     return static_cast<bool>(out);
@@ -218,28 +205,18 @@ bool saveCompressorStation(ostream& out, const CompressorStation& station)
 
 bool loadCompressorStation(istream& in, CompressorStation& station)
 {
-    CompressorStation candidate;
-    if (!getline(in, candidate.name)
-        || !readNumberLine(in, candidate.workshopCount)
-        || !readNumberLine(in, candidate.workingWorkshops)
-        || !readNumberLine(in, candidate.stationClass) || !validStation(candidate))
-        return false;
-    station = candidate;
-    return true;
+    return getline(in, station.name)
+        && readNumberLine(in, station.workshopCount)
+        && readNumberLine(in, station.workingWorkshops)
+        && readNumberLine(in, station.stationClass) && validStation(station);
 }
 
-bool saveToFile(const string& fileName, const AppState& state)
+bool saveToFile(const string& fileName, const Pipe& pipe, const CompressorStation& station)
 {
     error_code error;
     if (!filesystem::is_regular_file(filesystem::u8path(fileName), error))
     {
         cout << "Ошибка сохранения: выберите существующий файл.\n";
-        return false;
-    }
-    if ((state.hasPipe && !validPipe(state.pipe))
-        || (state.hasStation && !validStation(state.station)))
-    {
-        cout << "Ошибка сохранения: неверные данные объекта.\n";
         return false;
     }
     ofstream out(filesystem::u8path(fileName), ios::trunc);
@@ -248,10 +225,10 @@ bool saveToFile(const string& fileName, const AppState& state)
         cout << "Ошибка сохранения: файл не открывается для записи.\n";
         return false;
     }
-    out << (state.hasPipe ? 1 : 0) << '\n';
-    bool success = !state.hasPipe || savePipe(out, state.pipe);
-    out << (state.hasStation ? 1 : 0) << '\n';
-    success = success && (!state.hasStation || saveCompressorStation(out, state.station));
+    out << (pipe.name.empty() ? 0 : 1) << '\n';
+    bool success = pipe.name.empty() || savePipe(out, pipe);
+    out << (station.name.empty() ? 0 : 1) << '\n';
+    success = success && (station.name.empty() || saveCompressorStation(out, station));
     out.close();
     if (!success || !out)
     {
@@ -261,7 +238,7 @@ bool saveToFile(const string& fileName, const AppState& state)
     return true;
 }
 
-bool loadFromFile(const string& fileName, AppState& state)
+bool loadFromFile(const string& fileName, Pipe& pipe, CompressorStation& station)
 {
     error_code error;
     if (!filesystem::is_regular_file(filesystem::u8path(fileName), error))
@@ -275,38 +252,25 @@ bool loadFromFile(const string& fileName, AppState& state)
         cout << "Ошибка загрузки: файл не открывается для чтения.\n";
         return false;
     }
-    // Меняем данные только после проверки всего файла.
-    AppState candidate;
+    pipe = {};
+    station = {};
     int pipeCount = 0, stationCount = 0;
-    if (!readNumberLine(in, pipeCount) || (pipeCount != 0 && pipeCount != 1))
-    {
-        cout << "Ошибка загрузки: количество труб должно быть 0 или 1.\n";
-        return false;
-    }
-    candidate.hasPipe = (pipeCount == 1);
-    if (candidate.hasPipe && !loadPipe(in, candidate.pipe))
-    {
-        cout << "Ошибка загрузки: неверные или неполные поля трубы.\n";
-        return false;
-    }
-    if (!readNumberLine(in, stationCount) || (stationCount != 0 && stationCount != 1))
-    {
-        cout << "Ошибка загрузки: количество КС должно быть 0 или 1.\n";
-        return false;
-    }
-    candidate.hasStation = (stationCount == 1);
-    if (candidate.hasStation && !loadCompressorStation(in, candidate.station))
-    {
-        cout << "Ошибка загрузки: неверные или неполные поля КС.\n";
-        return false;
-    }
+    bool success = readNumberLine(in, pipeCount) && (pipeCount == 0 || pipeCount == 1);
+    if (success && pipeCount == 1)
+        success = loadPipe(in, pipe);
+    if (success)
+        success = readNumberLine(in, stationCount) && (stationCount == 0 || stationCount == 1);
+    if (success && stationCount == 1)
+        success = loadCompressorStation(in, station);
     string extraLine;
-    if (getline(in, extraLine) || in.bad() || !in.eof())
+    if (!success || getline(in, extraLine) || in.bad() || !in.eof())
     {
-        cout << "Ошибка загрузки: лишние поля или ошибка чтения.\n";
+        // Частично прочитанные объекты не должны попасть в меню и сохранение.
+        pipe = {};
+        station = {};
+        cout << "Ошибка загрузки: неверные или неполные данные. Объекты очищены.\n";
         return false;
     }
-    state = candidate;
     return true;
 }
 
@@ -322,7 +286,8 @@ int main()
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
 #endif
-    AppState state;
+    Pipe pipe;
+    CompressorStation station;
     int choice = 0;
     string fileName;
     while (true)
@@ -333,35 +298,33 @@ int main()
         switch (choice)
         {
         case 1:
-            if (!addPipe(state.pipe)) return 0;
-            state.hasPipe = true;
+            if (!addPipe(pipe)) return 0;
             break;
         case 2:
-            if (!addStation(state.station)) return 0;
-            state.hasStation = true;
+            if (!addStation(station)) return 0;
             break;
         case 3:
-            if (state.hasPipe) showPipe(state.pipe);
+            if (!pipe.name.empty()) showPipe(pipe);
             else cout << "Труба не добавлена.\n";
-            if (state.hasStation) showStation(state.station);
+            if (!station.name.empty()) showStation(station);
             else cout << "КС не добавлена.\n";
             break;
         case 4:
-            if (!state.hasPipe) cout << "Сначала добавьте трубу.\n";
-            else if (!editPipe(state.pipe)) return 0;
+            if (pipe.name.empty()) cout << "Сначала добавьте трубу.\n";
+            else if (!editPipe(pipe)) return 0;
             break;
         case 5:
-            if (!state.hasStation) cout << "Сначала добавьте КС.\n";
-            else if (!editStation(state.station)) return 0;
+            if (station.name.empty()) cout << "Сначала добавьте КС.\n";
+            else if (!editStation(station)) return 0;
             break;
         case 6:
         case 7:
             if (!readName("Путь к существующему файлу: ", fileName)) return 0;
             if (choice == 6)
             {
-                if (saveToFile(fileName, state)) cout << "Данные сохранены.\n";
+                if (saveToFile(fileName, pipe, station)) cout << "Данные сохранены.\n";
             }
-            else if (loadFromFile(fileName, state)) cout << "Данные загружены.\n";
+            else if (loadFromFile(fileName, pipe, station)) cout << "Данные загружены.\n";
             break;
         }
     }
