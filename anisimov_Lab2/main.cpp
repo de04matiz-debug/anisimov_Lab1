@@ -11,7 +11,7 @@ void showMenu()
 {
     std::cout << "\n1. Добавить трубу\n2. Добавить КС\n3. Просмотр объектов\n"
         << "4. Изменить ремонт трубы по ID\n5. Запуск или остановка цеха КС по ID\n"
-        << "6. Сохранить\n7. Загрузить\n8. Поиск и пакетные операции с трубами\n"
+        << "6. Сохранить\n7. Загрузить\n8. Поиск объектов и пакетные операции с трубами\n"
         << "9. Удалить объект по ID\n0. Выход\n";
 }
 
@@ -27,10 +27,9 @@ int main()
         std::cerr << "Не удалось открыть log.txt. Работа без журнала невозможна.\n";
         return 1;
     }
-    // Все сообщения std::clog отправляются в файл, std::cin и std::cout не перенаправляются.
     std::streambuf* previousLog = std::clog.rdbuf(log.rdbuf());
     logAction("Начало работы ЛР2");
-    AppState state;
+    Manager manager;
     bool running = true;
     while (running && std::clog)
     {
@@ -42,22 +41,22 @@ int main()
         switch (choice)
         {
         case 0: running = false; break;
-        case 1: running = addPipe(state); break;
-        case 2: running = addStation(state); break;
-        case 3: showObjects(state); break;
-        case 4: running = editPipe(state); break;
-        case 5: running = editStation(state); break;
+        case 1: running = manager.addPipe(); break;
+        case 2: running = manager.addStation(); break;
+        case 3: manager.showObjects(); break;
+        case 4: running = manager.editPipe(); break;
+        case 5: running = manager.editStation(); break;
         case 6:
         case 7:
-            running = readName("Путь к существующему файлу: ", fileName);
+            running = readName("Имя файла или полный путь: ", fileName);
             if (running)
             {
-                if (choice == 6) saveToFile(fileName, state);
-                else loadFromFile(fileName, state);
+                if (choice == 6) manager.saveToFile(fileName);
+                else manager.loadFromFile(fileName);
             }
             break;
-        case 8: running = searchObjects(state); break;
-        case 9: running = deleteObject(state); break;
+        case 8: running = manager.searchObjects(); break;
+        case 9: running = manager.deleteObject(); break;
         }
     }
     logAction("Завершение работы ЛР2");
