@@ -83,7 +83,6 @@ void Manager::showObjects() const
     if (pipes.empty() && stations.empty()) cout << "Объекты не добавлены.\n";
     for (const auto& [id, pipe] : pipes) pipe.show(id);
     for (const auto& [id, station] : stations) station.show(id);
-    logAction("Просмотр: труб=" + to_string(pipes.size()) + ", КС=" + to_string(stations.size()));
 }
 
 bool Manager::addPipe()
@@ -155,12 +154,10 @@ bool Manager::managePipes(vector<int>& found)
         if (action == 3)
         {
             pipes.erase(id);
-            logAction("Удалена труба ID=" + to_string(id));
         }
         else
         {
             pipes.at(id).setRepairing(action == 1);
-            logAction("Ремонт трубы ID=" + to_string(id) + ": " + to_string(action == 1));
         }
     }
     report("Обработано труб: " + to_string(found.size()));
@@ -190,7 +187,6 @@ bool Manager::searchPipes()
     for (int id : found)
     {
         pipes.at(id).show(id);
-        logAction("Найдена труба ID=" + to_string(id));
     }
     return found.empty() || managePipes(found);
 }
@@ -218,7 +214,6 @@ bool Manager::searchStations() const
     for (int id : found)
     {
         stations.at(id).show(id);
-        logAction("Найдена КС ID=" + to_string(id));
     }
     return true;
 }

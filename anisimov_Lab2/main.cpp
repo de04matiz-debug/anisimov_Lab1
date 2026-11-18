@@ -28,7 +28,6 @@ int main()
         return 1;
     }
     std::streambuf* previousLog = std::clog.rdbuf(log.rdbuf());
-    logAction("Начало работы ЛР2");
     Manager manager;
     bool running = true;
     while (running && std::clog)
@@ -36,7 +35,6 @@ int main()
         showMenu();
         int choice = 0;
         if (!readNumber("Выберите действие: ", choice, 0, 9)) break;
-        logAction("Выбрано действие: " + std::to_string(choice));
         std::string fileName;
         switch (choice)
         {
@@ -59,7 +57,6 @@ int main()
         case 9: running = manager.deleteObject(); break;
         }
     }
-    logAction("Завершение работы ЛР2");
     const bool logOk = static_cast<bool>(std::clog);
     std::clog.rdbuf(previousLog);
     log.close();

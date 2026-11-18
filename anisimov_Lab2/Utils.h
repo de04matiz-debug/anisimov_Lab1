@@ -7,7 +7,6 @@
 #include <vector>
 
 bool validName(const std::string& name);
-void logAction(const std::string& message);
 void report(const std::string& message);
 bool readLine(const std::string& prompt, std::string& line);
 bool readName(const std::string& prompt, std::string& name);
